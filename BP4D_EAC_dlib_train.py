@@ -20,7 +20,7 @@ from lasagne.layers import Pool2DLayer as PoolLayer
 from lasagne.nonlinearities import softmax,sigmoid
 from lasagne.utils import floatX
 from lasagne.layers import SliceLayer, concat,BatchNormLayer,ElemwiseSumLayer,ElemwiseMergeLayer,ReshapeLayer
-from lasagne.layers import LocalResponseNormalization2DLayer,BatchNormLayer, ROI_CropLayer,ROI_GotLayer,Upscale2DLayer
+from lasagne.layers import LocalResponseNormalization2DLayer,BatchNormLayer,Upscale2DLayer
 from lasagne.objectives import squared_error
 
 import get_bp4d_2dfeat
