@@ -1,7 +1,5 @@
 from collections import OrderedDict
 
-import theano.tensor as T
-
 from .. import utils
 
 
@@ -29,7 +27,7 @@ class Layer(object):
     name : a string or None
         An optional name to attach to this layer.
     """
-    def __init__(self, incoming, name=None):
+    def __init__(self, incoming, name=None,trainable=True):
         if isinstance(incoming, tuple):
             self.input_shape = incoming
             self.input_layer = None
@@ -39,8 +37,7 @@ class Layer(object):
 
         self.name = name
         self.params = OrderedDict()
-        self.get_output_kwargs = []
-
+        self.trainable=trainable
         if any(d is not None and d <= 0 for d in self.input_shape):
             raise ValueError((
                 "Cannot create Layer with a non-positive input_shape "
@@ -49,20 +46,62 @@ class Layer(object):
 
     @property
     def output_shape(self):
-        shape = self.get_output_shape_for(self.input_shape)
-        if any(isinstance(s, T.Variable) for s in shape):
-            raise ValueError("%s returned a symbolic output shape from its "
-                             "get_output_shape_for() method: %r. This is not "
-                             "allowed; shapes must be tuples of integers for "
-                             "fixed-size dimensions and Nones for variable "
-                             "dimensions." % (self.__class__.__name__, shape))
-        return shape
+        return self.get_output_shape_for(self.input_shape)
 
+    # def get_params(self, **tags):
+    #     """
+    #     Returns a list of Theano shared variables that parameterize the layer.
+
+    #     By default, all shared variables that participate in the forward pass
+    #     will be returned (in the order they were registered in the Layer's
+    #     constructor via :meth:`add_param()`). The list can optionally be
+    #     filtered by specifying tags as keyword arguments. For example,
+    #     ``trainable=True`` will only return trainable parameters, and
+    #     ``regularizable=True`` will only return parameters that can be
+    #     regularized (e.g., by L2 decay).
+
+    #     If any of the layer's parameters was set to a Theano expression instead
+    #     of a shared variable, the shared variables involved in that expression
+    #     will be returned rather than the expression itself. Tag filtering
+    #     considers all variables within an expression to be tagged the same.
+
+    #     Parameters
+    #     ----------
+    #     **tags (optional)
+    #         tags can be specified to filter the list. Specifying ``tag1=True``
+    #         will limit the list to parameters that are tagged with ``tag1``.
+    #         Specifying ``tag1=False`` will limit the list to parameters that
+    #         are not tagged with ``tag1``. Commonly used tags are
+    #         ``regularizable`` and ``trainable``.
+
+    #     Returns
+    #     -------
+    #     list of Theano shared variables
+    #         A list of variables that parameterize the layer
+
+    #     Notes
+    #     -----
+    #     For layers without any parameters, this will return an empty list.
+    #     """
+    #     result = list(self.params.keys())
+
+    #     only = set(tag for tag, value in tags.items() if value)
+    #     if only:
+    #         # retain all parameters that have all of the tags in `only`
+    #         result = [param for param in result
+    #                   if not (only - self.params[param])]
+
+    #     exclude = set(tag for tag, value in tags.items() if not value)
+    #     if exclude:
+    #         # retain all parameters that have none of the tags in `exclude`
+    #         result = [param for param in result
+    #                   if not (self.params[param] & exclude)]
+
+    #     return utils.collect_shared_vars(result)
     def get_params(self, unwrap_shared=True, **tags):
         """
         Returns a list of Theano shared variables or expressions that
         parameterize the layer.
-
         By default, all shared variables that participate in the forward pass
         will be returned (in the order they were registered in the Layer's
         constructor via :meth:`add_param()`). The list can optionally be
@@ -70,33 +109,28 @@ class Layer(object):
         ``trainable=True`` will only return trainable parameters, and
         ``regularizable=True`` will only return parameters that can be
         regularized (e.g., by L2 decay).
-
         If any of the layer's parameters was set to a Theano expression instead
         of a shared variable, `unwrap_shared` controls whether to return the
         shared variables involved in that expression (``unwrap_shared=True``,
         the default), or the expression itself (``unwrap_shared=False``). In
         either case, tag filtering applies to the expressions, considering all
         variables within an expression to be tagged the same.
-
         Parameters
         ----------
         unwrap_shared : bool (default: True)
             Affects only parameters that were set to a Theano expression. If
             ``True`` the function returns the shared variables contained in
             the expression, otherwise the Theano expression itself.
-
         **tags (optional)
             tags can be specified to filter the list. Specifying ``tag1=True``
             will limit the list to parameters that are tagged with ``tag1``.
             Specifying ``tag1=False`` will limit the list to parameters that
             are not tagged with ``tag1``. Commonly used tags are
             ``regularizable`` and ``trainable``.
-
         Returns
         -------
         list of Theano shared variables or expressions
             A list of variables that parameterize the layer
-
         Notes
         -----
         For layers without any parameters, this will return an empty list.
@@ -234,10 +268,18 @@ class Layer(object):
         param = utils.create_param(spec, shape, name)
         # parameters should be trainable and regularizable by default
         tags['trainable'] = tags.get('trainable', True)
+
+        #edited by Wei Li
+        ####
+        tags['trainable']=self.trainable
+
+        ###
         tags['regularizable'] = tags.get('regularizable', True)
         self.params[param] = set(tag for tag, value in tags.items() if value)
 
         return param
+    
+
 
 
 class MergeLayer(Layer):
@@ -253,7 +295,7 @@ class MergeLayer(Layer):
     name : a string or None
         An optional name to attach to this layer.
     """
-    def __init__(self, incomings, name=None):
+    def __init__(self, incomings, name=None,trainable=True):
         self.input_shapes = [incoming if isinstance(incoming, tuple)
                              else incoming.output_shape
                              for incoming in incomings]
@@ -262,18 +304,10 @@ class MergeLayer(Layer):
                              for incoming in incomings]
         self.name = name
         self.params = OrderedDict()
-        self.get_output_kwargs = []
-
+        self.trainable=trainable
     @Layer.output_shape.getter
     def output_shape(self):
-        shape = self.get_output_shape_for(self.input_shapes)
-        if any(isinstance(s, T.Variable) for s in shape):
-            raise ValueError("%s returned a symbolic output shape from its "
-                             "get_output_shape_for() method: %r. This is not "
-                             "allowed; shapes must be tuples of integers for "
-                             "fixed-size dimensions and Nones for variable "
-                             "dimensions." % (self.__class__.__name__, shape))
-        return shape
+        return self.get_output_shape_for(self.input_shapes)
 
     def get_output_shape_for(self, input_shapes):
         """
