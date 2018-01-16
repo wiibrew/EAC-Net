@@ -2,7 +2,7 @@
 Source code for EAC-Net in Theano/Pytorch/Tensorflow
 
 The related paper are published in FG 2017 https://arxiv.org/abs/1702.02925   and  CVPR 2017 https://arxiv.org/abs/1704.03067.
-
+and PAMI paper http://ieeexplore.ieee.org/abstract/document/8253509/
 
 Images files paths are saved in https://www.dropbox.com/sh/nshrqeuh4gu95mn/AACgyL67MGUwWMQAebcigXbla?dl=0.
 
